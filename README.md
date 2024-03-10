@@ -45,7 +45,7 @@ Button 9:
 
 Button 10:
 * Volume for the selected osciallator
-* Long press for tuning (separate tuneing for quantised and unquantised)
+* Long press for tuning (separate tuning for quantised and unquantised)
 * Button 1 => 100% 2 => 50% (1/2), 3 => 33% (1/3) ......
 * Tune with the pot
 
