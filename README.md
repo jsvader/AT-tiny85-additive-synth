@@ -1,5 +1,5 @@
 # AT-tiny85-additive-synth
-A six oscillator additive synth for the AT tiny85 chip.
+A six oscillator additive synth for the AT tiny85 chip. The source is compiled using the Arduino IDE, and is in the standard format for that IDE.
 
 Developed on a Digispark board. Only 6 I/O pins are available.
 Pin 0 is the PWM output,
@@ -9,18 +9,11 @@ Pin 3 Buttons for programming
 Pin 4 CV for note input
 Pin 5 Reset (left alone)
 
-The buttons are a resistor chain allowing 12 buttons to be read. In my prototype,
-I used variable screw pots to "tune" the ladder. The CV input is 0->5V. The output
-can be filtered around 16kHz for better sound - I cant personally hear any noise,
-but the oscilloscope picks it up.
+The buttons are a resistor chain allowing 12 buttons to be read. In my prototype, I used variable screw pots to "tune" the ladder. The CV input is 0->5V. The output can be filtered around 16kHz for better sound - I cant personally hear any noise, but the oscilloscope picks it up.
 
 Using the synth
 ================
-Assuming you have built a board, tuned the resistor chain and programmed the CPU,
-how do you use it? The buttons are broken down into 2 sections, functions and
-values. The value buttons select an oscillator, fixed value, or a sub menu. The
-function buttons select .... well, the function that is active. Buttons can be long
-pressed (> 0.5s) for an alternative function.
+Assuming you have built a board, tuned the resistor chain and programmed the CPU, how do you use it? The buttons are broken down into 2 sections, functions and values. The value buttons select an oscillator, fixed value, or a sub menu. The function buttons select .... well, the function that is active. Buttons can be long pressed (> 0.5s) for an alternative function.
 
 Buttons 1-6 are the value buttons, 7-12 are the functions
 
