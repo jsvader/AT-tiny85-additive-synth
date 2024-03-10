@@ -1,5 +1,5 @@
 # AT-tiny85-additive-synth
-A six oscillator additive synth for the AT tiny85 chip. The source is compiled using the Arduino IDE, and is in the standard format for that IDE.
+A six oscillator additive synth for the AT tiny85 chip. The source is compiled using the Arduino IDE, and is in the standard format for that IDE. Check out my youtube channel for videos using the synth.
 
 Developed on a Digispark board. Only 6 I/O pins are available.
 Pin 0 is the PWM output,
