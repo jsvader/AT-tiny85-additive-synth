@@ -2,12 +2,12 @@
 A six oscillator additive synth for the AT tiny85 chip. The source is compiled using the Arduino IDE, and is in the standard format for that IDE. Check out my youtube channel for videos using the synth.
 
 Developed on a Digispark board. Only 6 I/O pins are available.
-Pin 0 is the PWM output,
-Pin 1 is the (digital) Gate
-Pin 2 Pot for setting values
-Pin 3 Buttons for programming
-Pin 4 CV for note input
-Pin 5 Reset (left alone)
+* Pin 0 is the PWM output,
+* Pin 1 is the (digital) Gate
+* Pin 2 Pot for setting values
+* Pin 3 Buttons for programming
+* Pin 4 CV for note input
+* Pin 5 Reset (left alone)
 
 The buttons are a resistor chain allowing 12 buttons to be read. In my prototype, I used variable screw pots to "tune" the ladder. The CV input is 0->5V. The output can be filtered around 16kHz for better sound - I cant personally hear any noise, but the oscilloscope picks it up.
 
