@@ -40,7 +40,7 @@ Button 8:
 Button 9:
 * Envelope type
 * Long press for LFO
-* Env type button 1 => ADSR, 2 => delayed ADSR, 3=> repeating (AD)
+* Env type button 1 => ADSR, 2 => delayed ADSR, 3 => repeating (AD), 4 => delayed repeating (AD)
 * LFO button 1 => square, 2 => triangle, 3 => saw down, 4 => saw up, 5 => LFO speed, 6 => LFO delayed onset
 
 Button 10:
