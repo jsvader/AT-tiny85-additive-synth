@@ -52,7 +52,7 @@ Button 10:
  Button 11:
  * Phase / sequencer
  * Long press for patch
- * Button 1 => 0 phase, 2 => 180 degree, 3 => start sequencer, 4 => Start/stop sequence input, 5 => rest, 6 => hold (not implemented yet)
+ * Button 1 => 0 phase, 2 => 180 degree, 3 => start/stop sequencer, 4 => Start/stop sequence input, 5 => rest, 6 => hold (not implemented yet)
  * Patch submenu:
  * Button 1 => LFO pitch strenght (pot), button 2 => Repeated note toggle, 3 => Repeated note (and sequencer) duty cycle, 4 => SNH pitch strength (pot), 5 => LFO rate snh strenght (pot), 6 => toggle quantisation.
 
