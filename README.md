@@ -54,7 +54,7 @@ Button 10:
  * Long press for patch
  * Button 1 => 0 phase, 2 => 180 degree, 3 => start/stop sequencer, 4 => Start/stop sequence input, 5 => rest, 6 => hold (not implemented yet)
  * Patch submenu:
- * Button 1 => LFO pitch strenght (pot), button 2 => Repeated note toggle, 3 => Repeated note (and sequencer) duty cycle, 4 => SNH pitch strength (pot), 5 => LFO rate snh strenght (pot), 6 => toggle quantisation.
+ * Button 1 => LFO pitch strength (pot), button 2 => Repeated note toggle, 3 => Repeated note (and sequencer) duty cycle, 4 => SNH pitch strength (pot), 5 => LFO rate snh strength (pot), 6 => toggle quantisation.
 
  Button 12:
  * Load / save preset, or default the sound.
