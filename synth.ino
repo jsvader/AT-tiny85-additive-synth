@@ -88,7 +88,7 @@ int filt[6] = { 0, 0, 0, 0, 0, 0 };
 uc filt_state[6] = { 0, 0, 0, 0, 0, 0 };
 
 /*
- * Sequencer 16 notes. Note values store the octave and the semitone. Each octave
+ * Sequencer 48 notes. Note values store the octave and the semitone. Each octave
  * adds 12 to the note value. There are 12 semitones per octave. A value of 37 would
  * be octave = 3, note = 1. Values above 0xf0 are reserved for a rest or end of
  * sequence. Eventually, a held note will appear here too.
