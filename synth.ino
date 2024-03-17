@@ -88,14 +88,14 @@ int filt[6] = { 0, 0, 0, 0, 0, 0 };
 uc filt_state[6] = { 0, 0, 0, 0, 0, 0 };
 
 /*
- * Sequencer 48 notes. Note values store the octave and the semitone. Each octave
+ * Sequencer 16 notes. Note values store the octave and the semitone. Each octave
  * adds 12 to the note value. There are 12 semitones per octave. A value of 37 would
  * be octave = 3, note = 1. Values above 0xf0 are reserved for a rest or end of
  * sequence. Eventually, a held note will appear here too.
  * 
  * value = semitone + octave * 12
  */
-uc sequencer[49];
+uc sequencer[48];
 
 /*
  * Write a blob to EEPROM. Write len bytes of data to addr.
@@ -412,15 +412,18 @@ ISR(TIMER0_COMPB_vect) {
 /*
  * Generate the pitch information, as well as octave information from the
  * ADC output value. If the LFO is enabled, adjust the pitch accordingly.
+ * 
+ * ***NOTE*** getNote uses the most RAM of any routine. With a 48 note
+ * sequencer, we use exactly 512 bytes of RAM whilst inside getNote. If
+ * any more RAM is used, the synth will crash.
  */
 inline void getNote(int val) {
     static int vib = 0;
     static uc vib_dir = 1;
     static int prev = 0;
-    static int p_note = 0;
+    static int pnote = -1;
     int delta = 0;
     uc not_sliding = 1;
-    char s0 = special[0];
     uc diff = 255;
     uc cur;
     uc note = 0;
@@ -429,16 +432,16 @@ inline void getNote(int val) {
      * Each microtone is 4 apart. To stop noise on the CV causing 
      * the pitch to jump and sound noisy, we only update when we have
      * changed 2 microtones or more. The LFO and slide is uneffected
-     * by this.
+     * by this. If we are sliding, don't
      */
-    if (abs(val - prev) < 8)
-      val = prev;
+    if (pnote >= 0 && (val - pnote) < 8 && (val - pnote) > -8)
+      val = pnote;
     else
-      prev = val;
+      pnote = val;
 
-    if (s0) { // ie. not zero
-        delta = (((int)lfo_val * (int)s0) >> 7);
-        delta = (delta * (lfo_onset >> 3)) >> 7;
+    if (special[0]) { // ie. not zero
+        delta = ((int)lfo_val * (int)special[0]) >> 7;
+        delta = (delta * ((lfo_onset + 1) >> 2)) >> 8;
     }
 
     val += delta;
@@ -491,7 +494,7 @@ inline void getNote(int val) {
      * If we quantize, go to the nearest semitone. Dont quantise while sliding.
      */
     for (uc i = 0; i < 12; i++) {
-        cur =        (newPitch < quantised[i]) ? quantised[i] - newPitch : newPitch - quantised[i];
+        cur = (newPitch < quantised[i]) ? quantised[i] - newPitch : newPitch - quantised[i];
         if (cur < diff) {
             note = i;
             diff = cur;
