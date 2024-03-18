@@ -1,5 +1,5 @@
 /*
- * Currently, this compiles to 5600 of 6012 bytes of flash, and uses 455 of 512 bytes
+ * Currently, this compiles to 5718 of 6012 bytes of flash, and uses 456 of 512 bytes
  * of dynamic memory. This leaves 57 for the program itself. Changing the sequencer to
  * 64 bytes caused us to run out of memory, hence 48 steps. This is a lucky coincidence
  * anyway, as it is divisible by 3 and 4, so sequences of triplets of semiquavers can
@@ -263,9 +263,9 @@ inline void update_envelope() {
     for (uc i = 0; i < 6; i++) {
         if (env[i][0] < 2 && wave[i][0])
             tremolo = 0;
-        if (filt_state[i] > 0 || env[i][0] > 1) {
+        if (filt_state[i] > 0 || env[i][0] > 1 && env[i][0] < 4) {
             finished++;
-            if (filt_state[i] == 5 || env[i][0] > 1)
+            if (filt_state[i] == 6 || env[i][0] > 1)
                 playing--;
         }
     }
@@ -277,7 +277,7 @@ inline void update_envelope() {
     for (uc i = 0; i < 6; i++) {
         level = ((int)wave[i][0]) << 8;
         if (level == 0) {
-            filt_state[i] = 5;
+            filt_state[i] = 6;
             continue;
         }
         etype = (uc)(env[i][0]);
@@ -302,11 +302,11 @@ inline void update_envelope() {
                 filt[i] -= decay;
                 if (decay == 0 || filt[i] <= sustain) {
                     filt[i] = sustain;
-                    if (etype > 1) {
+                    if (etype > 1 && etype < 4) {
                         if (playing || tremolo)
                             filt_state[i] = 0;
                         else
-                            filt_state[i] = 5;
+                            filt_state[i] = 6;
                     } else {
                         filt_state[i] = 3;
                     }
@@ -314,13 +314,29 @@ inline void update_envelope() {
                 break;
             case 3: // Sustain stay here until told to release
                 if (filt[i] == 0)
-                    filt_state[i] = 5;
+                    filt_state[i] = 6;
                 break;
             case 4: // Release
-                filt[i] -= rel;
-                if (rel == 0 || filt[i] <= 0) {
-                    filt[i] = 0;
+                if (etype == 4) {
+                  filt[i] += rel;
+                  if (rel == 0 || filt[i] >= level) {
+                    filt[i] = level;
                     filt_state[i] = 5;
+                  }
+ 
+                } else {
+                  filt[i] -= rel;
+                  if (rel == 0 || filt[i] <= 0) {
+                    filt[i] = 0;
+                    filt_state[i] = 6;
+                  }
+                }
+                break;
+            case 5: // Reverse Release
+                filt[i] -= decay;
+                if (rel == 0 || filt[i] <= 0) {
+                  filt[i] = 0;
+                  filt_state[i] = 6;
                 }
                 break;
             default: // Note off
@@ -332,9 +348,11 @@ inline void update_envelope() {
     /*
      * generate the new waveform based on the filter volumes, and signal a bank switch
      */
+#if 0
     create_wave(1 - bank);
     newbank = 1 - bank;
     update = 1;
+#endif
 }
 
 /*
@@ -602,7 +620,7 @@ inline uc do_buttons(uc button, uc long_press) {
                 env[current_osc][0] = button - 1;
 
                 /* remove once more envelopes are defined */
-                if (button > 4)
+                if (button > 5)
                     env[current_osc][0] = 0;
                     
                 goto finish;
@@ -861,7 +879,6 @@ void loop() {
     #endif
     
     int button = 0;
-    uc seq_val = 0;
     uc moctave = 0;
     uc mpitch = 0;
 
@@ -1004,7 +1021,6 @@ void loop() {
                 s_learn = 0;
                 s_on = 1;
                 s_upto = 255;
-                sequencer[48] = 0xff;
             }
         /*
          * If the sequencer is running, check if we have set a sub sequence.
@@ -1025,8 +1041,7 @@ void loop() {
      * and rest 0xfe.
      */
     if (s_on && s_upto != 255) {
-        seq_val = sequencer[s_upto];
-        if (seq_val == 0xff) {
+        if (s_upto == 48 || sequencer[s_upto] == 0xff) {
             /*
              * reset the sequence to either the start of the sequence, or subsequence.
              */
@@ -1034,22 +1049,20 @@ void loop() {
                 s_upto = (s_next - 1) << 3;
             else
                 s_upto = 0;
-            seq_val = sequencer[s_upto];
-        } else if (seq_val == 0xfe) {
+        } else if (sequencer[s_upto] == 0xfe) {
             /*
              * A rest means go to the release phase. If the notes are already off, this will
              * move directly to the off state. If they are still playing, then this will
              * cause them to stop.
              */
             memset(filt_state, 4, 6);
-        } else {
-            /*
-             * generate pitch and octave from the s_note value.
-             */
-            for (moctave = 0, mpitch = seq_val; mpitch > 11; moctave++, mpitch -= 12);
-            newPitch = quantised[mpitch];
-            newOctave = moctave;
         }
+        /*
+         * generate pitch and octave from the s_note value.
+         */
+        for (moctave = 0, mpitch = sequencer[s_upto]; mpitch > 11; moctave++, mpitch -= 12);
+        newPitch = quantised[mpitch];
+        newOctave = moctave;
     } else {
         /*
          * normal CV generated note. Uses the tuning value (tv) and sample an hold (snh)
@@ -1061,6 +1074,15 @@ void loop() {
      * Update the envelope.This is where the magic happens.
      */
     update_envelope();
+
+    /*
+     * These routines used to be in the envelope, but that ran us out of memory with the
+     * function calls. Makes no difference if they are called there or here, so lets save
+     * memory. We are pretty much at 100% mempory utilisation now.
+     */
+    create_wave(1 - bank);
+    newbank = 1 - bank;
+    update = 1;
 
     /*
      * sdly delays from the last time it was called, so it basically ensures the loop
