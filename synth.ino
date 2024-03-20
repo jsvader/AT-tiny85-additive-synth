@@ -19,6 +19,7 @@ typedef unsigned char uc;
         tval = msec = 0
 
 #define SAMPLES 60
+#define SEQ_NO 53
 
 /*
  * Variables used in interrupts. Make them volatile to be more efficient
@@ -95,7 +96,7 @@ uc filt_state[6] = { 0, 0, 0, 0, 0, 0 };
  * 
  * value = semitone + octave * 12
  */
-uc sequencer[48];
+uc sequencer[SEQ_NO];
 
 /*
  * Write a blob to EEPROM. Write len bytes of data to addr.
@@ -318,25 +319,24 @@ inline void update_envelope() {
                 break;
             case 4: // Release
                 if (etype == 4) {
-                  filt[i] += rel;
-                  if (rel == 0 || filt[i] >= level) {
-                    filt[i] = level;
-                    filt_state[i] = 5;
-                  }
- 
+                    filt[i] += rel;
+                    if (rel == 0 || filt[i] >= level) {
+                        filt[i] = level;
+                        filt_state[i] = 5;
+                    }
                 } else {
-                  filt[i] -= rel;
-                  if (rel == 0 || filt[i] <= 0) {
-                    filt[i] = 0;
-                    filt_state[i] = 6;
-                  }
+                    filt[i] -= rel;
+                    if (rel == 0 || filt[i] <= 0) {
+                        filt[i] = 0;
+                        filt_state[i] = 6;
+                    }
                 }
                 break;
             case 5: // Reverse Release
                 filt[i] -= decay;
                 if (rel == 0 || filt[i] <= 0) {
-                  filt[i] = 0;
-                  filt_state[i] = 6;
+                    filt[i] = 0;
+                    filt_state[i] = 6;
                 }
                 break;
             default: // Note off
@@ -654,6 +654,7 @@ inline uc do_buttons(uc button, uc long_press) {
                 case 3: // play/stop sequence
                     s_on = s_on ? 0 : (gate == 4) ? 2 : 1;
                     s_upto = 255;
+                    s_next = 0;
                     update_lfo(1);
                     if (!s_on)
                         memset(filt_state, 4, 6);
@@ -665,18 +666,19 @@ inline uc do_buttons(uc button, uc long_press) {
                         sequencer[s_upto] = 0xff;
                         goto finish;
                     } else {
+                        memset(sequencer, 0, SEQ_NO);
                         s_upto = 0;
                     }
                     goto wait;
                     
                 case 5: // rest
                     if (s_learn)
-                        sequencer[s_upto++] = 0xfe;
+                        sequencer[s_upto++] = 0xfd;
                     goto wait;
                     
                 case 6: // hold
-                    if (s_learn && s_upto > 0)
-                        sequencer[s_upto - 1] &= 0x80;
+                    if (s_learn)
+                        sequencer[s_upto++] = 0xfe;
                     goto wait;
             }
             goto wait;
@@ -1017,9 +1019,10 @@ void loop() {
          */
         if (s_learn) {
             sequencer[s_upto++] = s_note;
-            if (s_upto >= 48) {
+            if (s_upto >= SEQ_NO) {
                 s_learn = 0;
                 s_on = 1;
+                s_next = 0;
                 s_upto = 255;
             }
         /*
@@ -1029,8 +1032,6 @@ void loop() {
          */
         } else if (s_on) {
             s_upto++;
-            if (s_next && (s_upto >> 3) != (s_next - 1))
-                s_upto = (s_next - 1) << 3;
         }
         gate = 4;
     }
@@ -1038,31 +1039,45 @@ void loop() {
 
     /*
      * If the sequencer is playing, get the next note. Look for sequence end (0xff)
-     * and rest 0xfe.
+     * and rest 0xfd.
      */
     if (s_on && s_upto != 255) {
-        if (s_upto == 48 || sequencer[s_upto] == 0xff) {
+        if (s_upto == SEQ_NO || sequencer[s_upto] > 0xfd) {
             /*
              * reset the sequence to either the start of the sequence, or subsequence.
              */
-            if (s_next)
-                s_upto = (s_next - 1) << 3;
-            else
+            if (s_next) {
+                uc s_num = 1;
                 s_upto = 0;
-        } else if (sequencer[s_upto] == 0xfe) {
+                while(s_upto < SEQ_NO && s_num < s_next) {
+                    while(s_upto < SEQ_NO && sequencer[s_upto++] < 0xfe);
+                    if (sequencer[s_upto-1] == 0xff) {
+                        s_upto = 0;
+                        break;
+                    }
+                    s_num++;
+                }                    
+                if (s_upto >= SEQ_NO)
+                    s_upto=0;
+            } else {
+                s_upto = 0;
+            }
+        }
+        if (sequencer[s_upto] == 0xfd) {
             /*
              * A rest means go to the release phase. If the notes are already off, this will
              * move directly to the off state. If they are still playing, then this will
              * cause them to stop.
              */
             memset(filt_state, 4, 6);
+        } else {
+            /*
+             * generate pitch and octave from the s_note value.
+             */
+            for (moctave = 0, mpitch = sequencer[s_upto]; mpitch > 11; moctave++, mpitch -= 12);
+            newPitch = quantised[mpitch];
+            newOctave = moctave;
         }
-        /*
-         * generate pitch and octave from the s_note value.
-         */
-        for (moctave = 0, mpitch = sequencer[s_upto]; mpitch > 11; moctave++, mpitch -= 12);
-        newPitch = quantised[mpitch];
-        newOctave = moctave;
     } else {
         /*
          * normal CV generated note. Uses the tuning value (tv) and sample an hold (snh)
