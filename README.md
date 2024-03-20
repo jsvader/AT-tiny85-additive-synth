@@ -19,8 +19,8 @@ Buttons 1-6 are the value buttons, 7-12 are the functions
 
 With no current function
 -------------------------
-Buttons 1-6 select oscillators 1-6
-Long pressing 1-6 activates portamento. 1 is none, 6 is max
+* Buttons 1-6 select oscillators 1-6
+* Long pressing 1-6 activates portamento. 1 is none, 6 is max
 
 Function
 ---------
@@ -52,7 +52,7 @@ Button 10:
  Button 11:
  * Phase / sequencer
  * Long press for patch
- * Button 1 => 0 phase, 2 => 180 degree, 3 => start/stop sequencer, 4 => Start/stop sequence input, 5 => rest, 6 => hold (not implemented yet)
+ * Button 1 => 0 phase, 2 => 180 degree, 3 => start/stop sequencer, 4 => Start/stop sequence input, 5 => rest, 6 => add a mark to denote a new sub sequence
  * Patch submenu:
  * Button 1 => LFO pitch strength (pot), button 2 => Repeated note toggle, 3 => Repeated note (and sequencer) duty cycle, 4 => SNH pitch strength (pot), 5 => LFO rate snh strength (pot), 6 => toggle quantisation.
 
@@ -62,4 +62,4 @@ Button 10:
  * Long press, then short press a value button to save that preset
  * Long press, then long press a value button to default the sound
 
- When the sequence is running, pressing a value button skips to, and repeats that 8 notes. Button 1, from step 1 to 8, button 2 from step 9 to 16 etc.
+ When the sequence is running, pressing a value button skips to, and repeats that subsequence. If a subsequence is not defined, then it goes back to the beginning.
