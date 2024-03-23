@@ -1,6 +1,6 @@
 /*
- * Currently, this compiles to 5718 of 6012 bytes of flash, and uses 456 of 512 bytes
- * of dynamic memory. This leaves 57 for the program itself. Changing the sequencer to
+ * Currently, this compiles to 5988 of 6012 bytes of flash, and uses 461 of 512 bytes
+ * of dynamic memory. This leaves 51 for the program itself. Changing the sequencer to
  * 64 bytes caused us to run out of memory, hence 48 steps. This is a lucky coincidence
  * anyway, as it is divisible by 3 and 4, so sequences of triplets of semiquavers can
  * be defined. 6 saved patches use 81 bytes each, totalling 486 bytes.
@@ -546,7 +546,7 @@ inline uc do_buttons(uc button, uc long_press) {
     static uc current_osc = 0;
     static uc preset_press = 0;
     static uc sub_button = 0;
-    const int env_values[6] = {0, 10, 20, 40, 80, 160};
+    const int env_values[6] = {1, 10, 20, 40, 80, 160};
 
     if (tune && button == 110) // save tuning
         EEPROM_write(quant, (uc *)&tv, 1);
@@ -589,10 +589,78 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 1:
             if (button < 7) {
-                if (button == 1)
-                    env[current_osc][1] = 0;
-                else
-                    env[current_osc][1] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
+                /*
+                 * Long pressing the value buttons on attack adds a template for the envelopes
+                 * 
+                 * The predefined ones are:
+                 * 1) Pluck with long delay/release
+                 * 2) Pluck with short delay/release
+                 * 3) Pluck with very short delay/release
+                 * 4) Sweeping low pass filter short attack/release (used for the trumpet sound)
+                 * 5) Sweeping low pass filter medium attack/release
+                 * 6) Sweeping low pass filter with long attack/release (pads)
+                 */
+                if (long_press) {
+                    unsigned int d0 = 0, d1, d2, d3, d4, d5;
+                    switch(button) {
+                        case 1:
+                            d0 = 1;
+                            d1 = 1;
+                            d2 = 0;
+                            d3 = 201;
+                            d4 = 40;
+                            d5 = 0;
+                            break;
+                        case 2:
+                            d0 = 1;
+                            d1 = 1;
+                            d2 = 0;
+                            d3 = 101;
+                            d4 = 20;
+                            d5 = 0;
+                            break;
+                        case 3:
+                            d0 = 1;
+                            d1 = 1;
+                            d2 = 0;
+                            d3 = 16;
+                            d4 = 3;
+                            d5 = 0;
+                            break;
+                        case 4:
+                            d1 = 5;
+                            d2 = 5;
+                            d3 = 31;
+                            d4 = 5;
+                            d5 = 256;
+                            break;
+                        case 5:
+                            d1 = 20;
+                            d2 = 20;
+                            d3 = 61;
+                            d4 = 10;
+                            d5 = 256;
+                            break;
+                        case 6:
+                            d1 = 40;
+                            d2 = 40;
+                            d3 = 241;
+                            d4 = 40;
+                            d5 = 256;
+                            break;
+                    }
+                    for (int i = 0; i < 6; i++) {
+                        env[i][0] = d0;
+                        env[i][1] = (((int)wave[i][0])<<8) / d1;
+                        env[i][2] = (((int)wave[i][0])<<8) / d3;
+                        env[i][3] = d5;
+                        env[i][4] = (((int)wave[i][0])<<8) / d3;
+                        d1 += d2;
+                        d3 -= d4;
+                    }
+                    goto finish;
+                }
+                env[current_osc][1] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
                 goto finish;
             }
             env[current_osc][1] = pot;
@@ -603,10 +671,7 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 2:
             if (button < 7) {
-                if (button == 1)
-                    env[current_osc][4] = 0;
-                else
-                    env[current_osc][4] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
+                env[current_osc][4] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
                 goto finish;
             }
             env[current_osc][4] = pot;
@@ -719,10 +784,7 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 8:
             if (button < 7) {
-                if (button == 1)
-                    env[current_osc][2] = 0;
-                else
-                    env[current_osc][2] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
+                env[current_osc][2] = (((int)wave[current_osc][0])<<8) / env_values[button-1];
                 goto finish;
             }
             env[current_osc][2] = pot;
@@ -760,6 +822,7 @@ inline uc do_buttons(uc button, uc long_press) {
                     goto finish;
                 case 6: // toggle quantisation
                     quant = 1 - quant;
+                    EEPROM_read(quant, (uc *)&tv, 1); // read tuning value    
                     goto finish;
             }
 
