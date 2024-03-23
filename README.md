@@ -31,6 +31,7 @@ Button 7:
 * Attack for the currently selected oscillator
 * Long press for sustain level
 * Button 1 is quickest attack or 100% sustain, button 6 is the longest attack, 0% sustain
+* Long press buttons 1 to 6 for default envelopes. 1-3 pluck (long to short) 4-6 pads (short to long)
 
 Button 8:
 * Release for the currently selected osciallator
