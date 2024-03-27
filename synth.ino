@@ -344,15 +344,6 @@ inline void update_envelope() {
                 break;
         }
     }
-
-    /*
-     * generate the new waveform based on the filter volumes, and signal a bank switch
-     */
-#if 0
-    create_wave(1 - bank);
-    newbank = 1 - bank;
-    update = 1;
-#endif
 }
 
 /*
@@ -397,12 +388,12 @@ void setup() {
 ISR(TIMER1_COMPA_vect) {
     if (update) {
         OCR1A = OCR1C = newPitch;
-        TCCR1 = _BV(CTC1) | newOctave;
+        TCCR1 = _BV(CTC1) | (((newOctave & 0x30)>>4) + 2);
         bank = newbank;
         update = 0;
     }
 
-    if (++sample >= SAMPLES)
+    if ((sample += (newOctave >> 6)) >= SAMPLES)
         sample = 0;
     sndval = snd[bank][sample];
 
@@ -487,18 +478,18 @@ inline void getNote(int val) {
      * 1 octave = 1V, 5V = 1024, so 1V is about 204 give or take.
      */
     if (val < 204) {
-        newOctave = 5;
+        newOctave = 0x70;
     } else if (val < 408) {
-        newOctave = 4;
+        newOctave = 0x60;
         val -= 204;
     } else if (val < 612) {
-        newOctave = 3;
+        newOctave = 0x50;
         val -= 408;
     } else if (val < 816) {
-        newOctave = 2;
+        newOctave = 0x40;
         val -= 612;
     } else {
-        newOctave = 1;
+        newOctave = 0x80;
         val -= 816;
     }
 
@@ -511,14 +502,16 @@ inline void getNote(int val) {
     /*
      * If we quantize, go to the nearest semitone. Dont quantise while sliding.
      */
-    for (uc i = 0; i < 12; i++) {
+    for (uc i = val >> 6; i < 12; i++) {
         cur = (newPitch < quantised[i]) ? quantised[i] - newPitch : newPitch - quantised[i];
         if (cur < diff) {
             note = i;
             diff = cur;
-        } 
+        } else {
+          break;
+        }
     }
-    s_note = newOctave * 12 + note;
+    s_note = newOctave + note;
     if (quant && not_sliding)
         newPitch = quantised[note];
 }
@@ -1137,9 +1130,8 @@ void loop() {
             /*
              * generate pitch and octave from the s_note value.
              */
-            for (moctave = 0, mpitch = sequencer[s_upto]; mpitch > 11; moctave++, mpitch -= 12);
-            newPitch = quantised[mpitch];
-            newOctave = moctave;
+            newPitch = quantised[sequencer[s_upto] & 0xf];
+            newOctave = sequencer[s_upto] & 0xf0;
         }
     } else {
         /*
