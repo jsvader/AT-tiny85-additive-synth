@@ -1,5 +1,5 @@
 /*
- * Currently, this compiles to 5988 of 6012 bytes of flash, and uses 461 of 512 bytes
+ * Currently, this compiles to 5592 of 6012 bytes of flash, and uses 463 of 512 bytes
  * of dynamic memory. This leaves 51 for the program itself. Changing the sequencer to
  * 64 bytes caused us to run out of memory, hence 48 steps. This is a lucky coincidence
  * anyway, as it is divisible by 3 and 4, so sequences of triplets of semiquavers can
@@ -72,6 +72,7 @@ const uc quantised[12] = {255,241,227,214,202,191,180,170,160,151,143,135};
  * For performance, we cache the SINE wave, also to 60 samples.
  */
 volatile uc snd[2][SAMPLES];
+volatile uc *sbank = snd[0];
 char sine[SAMPLES] = {0,13,26,39,51,63,74,84,94,102,109,115,120,124,126,127,126,124,120,116,109,102,94,85,74,63,51,39,26,13,0,-12,-26,-38,-51,-63,-74,-84,-94,-102,-109,-115,-120,-124,-126,-127,-126,-124,-120,-116,-110,-102,-94,-85,-74,-63,-51,-39,-26,-13};
 
 /*
@@ -358,7 +359,9 @@ void setup() {
     EEPROM_read(quant, (uc *)&tv, 1); // read tuning value
 
 
-    pinMode(0, OUTPUT);
+    //pinMode(0, OUTPUT);
+    DDRB = 1 << DDB0;                       
+    TCCR0A = 1 << COM0A1 | 1 << WGM01  | 1 << WGM00; // fasm pwm
     TCCR0B = B00000001;        // prescalar to 8
     OCR0B = 255;
 
@@ -379,7 +382,8 @@ void setup() {
     /*
      * This sets up the PWM. We could probably save space by implementing the setup.
      */
-    analogWrite(0, 128);
+    //analogWrite(0, 128);
+    OCR0A = 128;
 }
 
 /*
@@ -390,13 +394,14 @@ ISR(TIMER1_COMPA_vect) {
         OCR1A = OCR1C = newPitch;
         TCCR1 = _BV(CTC1) | (((newOctave & 0x30)>>4) + 2);
         bank = newbank;
+        sbank = snd[bank];
         update = 0;
     }
 
-    if ((sample += (newOctave >> 6)) >= SAMPLES)
+    sample += (newOctave >> 6);
+    if (sample >= SAMPLES)
         sample = 0;
-    sndval = snd[bank][sample];
-
+    sndval = *(sbank + sample);
     /*
      * pseudo random number generator. Add one each time the interrup triggers.
      * We have 2 interrupts which aren't in any way synchronised, so the value
@@ -990,14 +995,14 @@ void loop() {
         if (button <= 620) {
             button_debounce++;                        
         } else {
-        if (button_debounce > 4) {
-            if (current_button > 6)
-                button_value = do_buttons(100 + current_button, 0); // clear the button state on a new function button
-            else
+            if (button_debounce > 4) {
+                if (current_button > 6)
+                    button_value = do_buttons(100 + current_button, 0); // clear the button state on a new function button
+                else
+                    button_value = do_buttons(current_button, button_debounce > 50);
+            }
+            if (button_value) // polling the buttons for a new value
                 button_value = do_buttons(current_button, button_debounce > 50);
-        }
-        if (button_value) // polling the buttons for a new value
-            button_value = do_buttons(current_button, button_debounce > 50);
             button_debounce = 0;
         }
 
