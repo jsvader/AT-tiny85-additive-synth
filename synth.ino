@@ -695,7 +695,57 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 4:
             if (button < 7) {
-                wave[current_osc][0] = 60 / button;
+                if (long_press) {
+                  memcpy(wave, 0, sizeof(wave));
+                  uc *tmp = (uc *)wave;
+                  switch(button) {
+                      case 1: // saw
+                          *tmp = 60;
+                          *(tmp + 2) = 30;
+                          *(tmp + 4) = 20;
+                          *(tmp + 6) = 15;
+                          *(tmp + 8) = 12;
+                          *(tmp + 10) = 10;
+                          break;
+                      case 2: // square
+                          *tmp = 60;
+                          *(tmp + 4) = 20;
+                          *(tmp + 8) = 12;
+                          break;
+                      case 3: // triangle
+                          *tmp = 60;
+                          *(tmp + 4) = 6;
+                          *(tmp + 5) = 10;
+                          *(tmp + 8) = 3;
+                          break;
+                      case 4: //pulse (all harmonics equal)
+                          *tmp = 30;
+                          *(tmp + 2) = 30;
+                          *(tmp + 4) = 30;
+                          *(tmp + 6) = 30;
+                          *(tmp + 8) = 30;
+                          *(tmp + 10) = 30;
+                          break;
+                      case 5: // reverse saw (resonant sounding pulse)
+                          *tmp = 10;
+                          *(tmp + 2) = 20;
+                          *(tmp + 4) = 30;
+                          *(tmp + 6) = 40;
+                          *(tmp + 8) = 50;
+                          *(tmp + 10) = 60;
+                          break;
+                      case 6: // saw + 1/2 volume square
+                          *tmp = 60;
+                          *(tmp + 2) = 60;
+                          *(tmp + 4) = 20;
+                          *(tmp + 6) = 15;
+                          *(tmp + 8) = 12;
+                          *(tmp + 10) = 20;
+                          break;
+                  }
+                } else {
+                  wave[current_osc][0] = 60 / button;
+                }
                 goto finish;
             }
             wave[current_osc][0] = (uc)(pot>>4);
