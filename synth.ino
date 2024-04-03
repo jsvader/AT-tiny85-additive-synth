@@ -1,5 +1,5 @@
 /*
- * Currently, this compiles to 5592 of 6012 bytes of flash, and uses 463 of 512 bytes
+ * Currently, this compiles to 5948 of 6012 bytes of flash, and uses 463 of 512 bytes
  * of dynamic memory. This leaves 51 for the program itself. Changing the sequencer to
  * 64 bytes caused us to run out of memory, hence 48 steps. This is a lucky coincidence
  * anyway, as it is divisible by 3 and 4, so sequences of triplets of semiquavers can
@@ -152,20 +152,56 @@ inline void create_wave(uc b) {
     /*
      * initialise the phase of the wave
      */
-    uc v2 = wave[1][1], v3 = wave[2][1], v4 = wave[3][1], v5 = wave[4][1], v6 = wave[5][1];
- 
+    uc v[6] = {0, wave[1][1], wave[2][1], wave[3][1], wave[4][1], wave[5][1]};
+    uc pval = 0;
     for (int i = 0; i < SAMPLES; i++) {
-        v2 = (v2 + 2 >= SAMPLES) ? v2 + 2 - SAMPLES : v2 + 2;
-        v3 = (v3 + 3 >= SAMPLES) ? v3 + 3 - SAMPLES : v3 + 3;
-        v4 = (v4 + 4 >= SAMPLES) ? v4 + 4 - SAMPLES : v4 + 4;
-        v5 = (v5 + 5 >= SAMPLES) ? v5 + 5 - SAMPLES : v5 + 5;
-        v6 = (v6 + 6 >= SAMPLES) ? v6 + 6 - SAMPLES : v6 + 6;
-        result = (filt[0] >> 8) * (int)sine[i];
-        result += (filt[1] >> 8) * (int)sine[v2];
-        result += (filt[2] >> 8) * (int)sine[v3];
-        result += (filt[3] >> 8) * (int)sine[v4];
-        result += (filt[4] >> 8) * (int)sine[v5];
-        result += (filt[5] >> 8) * (int)sine[v6];
+        /*
+         * FM synth engine. 2 Operator with feedback on the carrier
+         */
+        if (wave[1][1] > 0x40) {
+            /*
+             * val is the next index for the modulated carrier
+             */
+            int val = ((i << 8) + ((filt[1] >> 8) * (int)sine[v[0]])) >> 8;
+            /*
+             * Apply feedback
+             */
+            val += ((filt[2] >> 8) * (int)sine[pval]) >> 8;
+            /*
+             * Sanitise from 0-59 (SAMPLES)
+             */
+            while (val >= SAMPLES) val -= SAMPLES;
+            while (val < 0) val += SAMPLES;
+            /*
+             * store the old value of the carrier index for use in feedback
+             */
+            pval = val;
+            /*
+             * Update the modulator and sanitize 0-59
+             */
+            v[0] += wave[1][1] & 0xf;
+            while (v[0] >= SAMPLES) v[0] -= SAMPLES;
+            while (v[0] < 0) v[0] += SAMPLES;
+            /*
+             * The result is the envelope of the carrier
+             */
+            result = (filt[0] >> 8) * (int)sine[val];
+        /*
+         * Additive synth engine. Changed to a loop rather than multiple lines
+         * with multiplies in them. The ATTiny85 doesn't have a mult instruction
+         * so multiplies use quite a but of space. This alone saved almost 1/2K
+         * of flash. Also note a slight bug before - we updated the waves *before*
+         * using them, so everything bar the fundemental was out by 1 index value
+         * ie. a phase shift of 1.
+         */
+        } else {
+            result = 0;
+            for (int j = 0; j < 6; j++) {
+                result += (filt[j] >> 8) * (int)sine[v[j]];
+                v[j] += (j+1);
+                if (v[j] >= SAMPLES) v[j] -= SAMPLES;
+            }
+        }
         snd[b][i] = (uc)((result + 32512) >> 8); // snd is unsigned so shift so that -128 -> 127 => 0 -> 255
     }
 }
@@ -756,9 +792,17 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 5:
             switch(button) {
-                case 1: // phase = 0
-                    wave[current_osc][1] = 0;
-                    goto finish;
+                case 1:
+                    if (sub_button) {
+                        wave[1][1] = 0x40 + ((pot >> 7) + 1);
+                        goto value;
+                    } else if (long_press) {
+                        sub_button = 1;
+                        goto value;
+                    } else { // phase = 0
+                        wave[current_osc][1] = 0;
+                        goto finish;
+                    }
 
                 case 2: // phase = 180 degrees
                     wave[current_osc][1] = 30 / (current_osc+1);
