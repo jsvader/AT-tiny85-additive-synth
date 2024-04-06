@@ -162,26 +162,25 @@ inline void create_wave(uc b) {
             /*
              * val is the next index for the modulated carrier
              */
-            int val = ((i << 8) + ((filt[1] >> 8) * (int)sine[v[0]])) >> 8;
-            /*
-             * Apply feedback
-             */
-            val += ((filt[2] >> 8) * (int)sine[pval]) >> 8;
+            int val = ((i << 8) + ((filt[1] >> 8) * (int)sine[pval])) >> 8;
             /*
              * Sanitise from 0-59 (SAMPLES)
              */
             while (val >= SAMPLES) val -= SAMPLES;
             while (val < 0) val += SAMPLES;
             /*
-             * store the old value of the carrier index for use in feedback
-             */
-            pval = val;
-            /*
              * Update the modulator and sanitize 0-59
              */
             v[0] += wave[1][1] & 0xf;
             while (v[0] >= SAMPLES) v[0] -= SAMPLES;
             while (v[0] < 0) v[0] += SAMPLES;
+
+            /*
+             * Create the feedback value and sanitize 0-59
+             */
+            pval = ((v[0] << 8) + ((filt[2] >> 8) * (int)sine[v[0]])) >> 8;
+            while (pval >= SAMPLES) pval -= SAMPLES;
+            while (pval < 0) pval += SAMPLES;
             /*
              * The result is the envelope of the carrier
              */
@@ -484,7 +483,7 @@ inline void getNote(int val) {
      * changed 2 microtones or more. The LFO and slide is uneffected
      * by this. If we are sliding, don't
      */
-    if (pnote >= 0 && (val - pnote) < 8 && (val - pnote) > -8)
+    if (pnote >= 0 && (val - pnote) < 4 && (val - pnote) > -4)
       val = pnote;
     else
       pnote = val;
@@ -588,6 +587,8 @@ inline uc do_buttons(uc button, uc long_press) {
     tune = 0;
     if (button > 100) {
         sub_button = 0;
+        if (button_state == 4)
+            memset(filt_state, 4, sizeof(filt_state));
         if (button - 106 == button_state || (button - 100) == button_state)
             goto finish;
         button_state = 0;
@@ -732,7 +733,7 @@ inline uc do_buttons(uc button, uc long_press) {
         case 4:
             if (button < 7) {
                 if (long_press) {
-                  memcpy(wave, 0, sizeof(wave));
+                  memset(wave, 0, sizeof(wave));
                   uc *tmp = (uc *)wave;
                   switch(button) {
                       case 1: // saw
@@ -782,9 +783,11 @@ inline uc do_buttons(uc button, uc long_press) {
                 } else {
                   wave[current_osc][0] = 60 / button;
                 }
+                memset(filt_state, 4, sizeof(filt_state));
                 goto finish;
             }
             wave[current_osc][0] = (uc)(pot>>4);
+            memset(filt_state, 0, sizeof(filt_state)); // retrigger env
             goto value;
 
         /*    
@@ -792,17 +795,9 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 5:
             switch(button) {
-                case 1:
-                    if (sub_button) {
-                        wave[1][1] = 0x40 + ((pot >> 7) + 1);
-                        goto value;
-                    } else if (long_press) {
-                        sub_button = 1;
-                        goto value;
-                    } else { // phase = 0
-                        wave[current_osc][1] = 0;
-                        goto finish;
-                    }
+                case 1: // phase = 0
+                    wave[current_osc][1] = 0;
+                    goto finish;
 
                 case 2: // phase = 180 degrees
                     wave[current_osc][1] = 30 / (current_osc+1);
@@ -901,8 +896,15 @@ inline uc do_buttons(uc button, uc long_press) {
          * Tune
          */
         case 10:
-            tune = 1;
-            goto finish;
+            if (button == 1) {
+                wave[1][1] = 0x40 + ((pot >> 7) + 1);
+            } else if (button == 6) {
+                tune = 1;
+                goto finish;
+            } else if (button < 7) {
+                goto finish;
+            }
+            goto value;
 
         /*
          * Special
@@ -1025,6 +1027,20 @@ void loop() {
     static uc button_value = 0;
     static uc rpt = 0;
     static int snh = 0;
+    static int ds = 1;
+
+    if (ds) {
+      ds = 0;
+      sdly(1000);
+    }
+
+    /*
+     * sdly delays from the last time it was called, so it basically ensures the loop
+     * runs every 10ms. We need to make sure that the code doesn't take more than 10ms
+     * per loop, or we will end up with inconsistent envelopes which makes the output
+     * sound noisy.
+     */
+    sdly(10);
 
     #if 0
     /*
@@ -1253,11 +1269,5 @@ void loop() {
     newbank = 1 - bank;
     update = 1;
 
-    /*
-     * sdly delays from the last time it was called, so it basically ensures the loop
-     * runs every 10ms. We need to make sure that the code doesn't take more than 10ms
-     * per loop, or we will end up with inconsistent envelopes which makes the output
-     * sound noisy.
-     */
-    sdly(10);
+    //sdly(10);
 }
