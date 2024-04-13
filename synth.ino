@@ -19,6 +19,7 @@ typedef unsigned char uc;
         tval = msec = 0
 
 #define SAMPLES 60
+#define SAMPLES2 120
 #define SEQ_NO 53
 
 /*
@@ -129,7 +130,7 @@ void EEPROM_write(unsigned short addr, uc *data, uc len)
 void EEPROM_read(unsigned short addr, uc *data, uc len)
 {
     cli();
-    for (int i = 0; i < len; i++, data++, addr++) {
+    for (uc i = 0; i < len; i++, data++, addr++) {
         /* Wait for completion of previous write */
         while(EECR & (1<<EEPE));
         /* Set up address register */
@@ -171,14 +172,14 @@ inline void create_wave(uc b) {
             /*
              * Update the modulator and sanitize 0-59
              */
-            v[0] += wave[1][1] & 0xf;
-            while (v[0] >= SAMPLES) v[0] -= SAMPLES;
-            while (v[0] < 0) v[0] += SAMPLES;
+            v[0] += wave[1][1] & 0x1f;
+            while (v[0] >= SAMPLES2) v[0] -= SAMPLES2;
+            while (v[0] < 0) v[0] += SAMPLES2;
 
             /*
              * Create the feedback value and sanitize 0-59
              */
-            pval = ((v[0] << 8) + ((filt[2] >> 8) * (int)sine[v[0]])) >> 8;
+            pval = ((v[0] << 7) + ((filt[2] >> 8) * (int)sine[v[0]>>1])) >> 8;
             while (pval >= SAMPLES) pval -= SAMPLES;
             while (pval < 0) pval += SAMPLES;
             /*
@@ -314,6 +315,7 @@ inline void update_envelope() {
     for (uc i = 0; i < 6; i++) {
         level = ((int)wave[i][0]) << 8;
         if (level == 0) {
+            filt[i] = 0;
             filt_state[i] = 6;
             continue;
         }
@@ -490,7 +492,7 @@ inline void getNote(int val) {
 
     if (special[0]) { // ie. not zero
         delta = ((int)lfo_val * (int)special[0]) >> 7;
-        delta = (delta * ((lfo_onset + 1) >> 2)) >> 8;
+        delta = (delta * ((lfo_onset + 1) >> 3)) >> 7;
     }
 
     val += delta;
@@ -897,7 +899,7 @@ inline uc do_buttons(uc button, uc long_press) {
          */
         case 10:
             if (button == 1) {
-                wave[1][1] = 0x40 + ((pot >> 7) + 1);
+                wave[1][1] = 0x40 + ((pot >> 6) + 1);
             } else if (button == 6) {
                 tune = 1;
                 goto finish;
@@ -1027,20 +1029,6 @@ void loop() {
     static uc button_value = 0;
     static uc rpt = 0;
     static int snh = 0;
-    static int ds = 1;
-
-    if (ds) {
-      ds = 0;
-      sdly(1000);
-    }
-
-    /*
-     * sdly delays from the last time it was called, so it basically ensures the loop
-     * runs every 10ms. We need to make sure that the code doesn't take more than 10ms
-     * per loop, or we will end up with inconsistent envelopes which makes the output
-     * sound noisy.
-     */
-    sdly(10);
 
     #if 0
     /*
@@ -1267,7 +1255,13 @@ void loop() {
      */
     create_wave(1 - bank);
     newbank = 1 - bank;
-    update = 1;
 
-    //sdly(10);
+    /*
+     * sdly delays from the last time it was called, so it basically ensures the loop
+     * runs every 10ms. We need to make sure that the code doesn't take more than 10ms
+     * per loop, or we will end up with inconsistent envelopes which makes the output
+     * sound noisy.
+     */
+    sdly(10);
+    update = 1;
 }
